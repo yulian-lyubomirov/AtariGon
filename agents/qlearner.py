@@ -5,7 +5,7 @@ from typing import Optional, List, Dict
 from atarigon.api import Goshi, Goban, Ten
 
 class QLearningAgent(Goshi):
-    def __init__(self, epsilon: float = 0.01, alpha: float = 0.001, gamma: float = 0.9):
+    def __init__(self, epsilon: float = 0.01, alpha: float = 0.01, gamma: float = 0.9):
         super().__init__('QLearningAgent')
         self.epsilon = epsilon  # Exploration rate
         self.alpha = alpha      # Learning rate
@@ -35,7 +35,7 @@ class QLearningAgent(Goshi):
 
         new_q = (1 - self.alpha) * current_q + self.alpha * (reward + self.gamma * max_future_q)
         self.q_table[(state, action)] = new_q
-        self.alpha = self.alpha-0.00005
+        self.alpha = self.alpha-0.0005
 
     def q_value(self, state: 'Goban', action: Ten) -> float:
         if (state, action) not in self.q_table:
