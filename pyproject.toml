@@ -8,6 +8,9 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 numpy = "^1.24.3"
+tensorflow = "^2.15.0"
+keras = "^3.0.0"
+
 
 [build-system]
 requires = ["poetry-core"]

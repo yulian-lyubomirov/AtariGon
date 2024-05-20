@@ -52,7 +52,7 @@ def run_game(
 
         # Stone is placed and captured players are removed from the game
         captured = goban.place_stone(ten, player)
-        reward = 10.0 * len(captured)
+        reward = 5.0 * len(captured)+1
         for captured_player in captured:
             # It maybe was an already captured player, so we check. If
             # not, the player score is incremented and the captured
@@ -64,7 +64,7 @@ def run_game(
                 if isinstance(captured_player, QLearningAgent):
                     captured_player.learn(current_state, None, -10.0, goban.clone())
         next_state = goban.clone()
-        if isinstance(player, QLearningAgent):
+        if isinstance(player, QLearningAgent) and player in goshi:
             player.learn(current_state, ten, reward, next_state if goshi else None)
         # The player is added to the end of the list, waiting for its
         # next turn
@@ -78,6 +78,8 @@ def run_game(
         kakunin[player] += i
     for player in shoshinsha:
         kakunin[player] = 0
+    if player in goshi:
+        player.learn(current_state, ten, 20.0, current_state if goshi else None)
 
     return kakunin
 
