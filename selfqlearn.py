@@ -28,21 +28,35 @@ class QLearningAgent(Goshi):
 
     def learn(self, state: 'Goban', action: Ten, reward: float, next_state: Optional['Goban']) -> None:
         current_q = self.q_value(state, action)
-        print(self.q_table)
         if next_state is None or self.is_terminal(next_state):
             max_future_q = 0
         else:
             max_future_q = np.max([self.q_value(next_state, pos) for pos in next_state.empty_positions])
 
-        new_q = (1 - self.alpha) * current_q + self.alpha * (reward + self.gamma * max_future_q)
-        self.q_table[(state, action)] = new_q
-        self.alpha = self.alpha-0.0005
+        new_q = (1 - self.alpha) * current_q + self.alpha (reward + self.gamma * max_future_q)
+        self.q_table[(self.hash_state(state), action)] = new_q
 
     def q_value(self, state: 'Goban', action: Ten) -> float:
-        if (state, action) not in self.q_table:
-            return 0
-        else:
-            return self.q_table[(state, action)]
+        return self.q_table.get((self.hash_state(state), action), 0)
 
     def is_terminal(self, state: 'Goban') -> bool:
         return not any(Ten(row, col) for row in range(len(state.ban)) for col in range(len(state.ban[row])) if state.ban[row][col] is None)
+
+    def calculate_reward(self, state: 'Goban', action: Ten, next_state: 'Goban') -> float:
+        # Example reward function: 1 point for placing a stone, additional points for capturing stones
+        reward = 1.0
+        captured_stones = len(self.captured_stones(state, next_state))
+        reward += 5.0 * captured_stones
+        return reward
+
+    def captured_stones(self, state: 'Goban', next_state: 'Goban') -> List[Ten]:
+        captured = []
+        for row in range(len(state.ban)):
+            for col in range(len(state.ban[row])):
+                if state.ban[row][col] is not None and next_state.ban[row][col] is None:
+                    captured.append(Ten(row, col))
+        return captured
+
+    def hash_state(self, state: 'Goban') -> str:
+        # Create a unique string representation of the board state
+        return ''.join([''.join(['1' if cell is not None else '0' for cell in row]) for row in state.ban])
