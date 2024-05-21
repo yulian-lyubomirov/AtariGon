@@ -8,7 +8,7 @@ from typing import Type, List
 
 from atarigon.api import Goshi, Goban
 from agents.qlearner import QLearningAgent
-from agents.leñador import RandomForestAgent
+from agents.plepito import Plepito
 MIN_BOARD_SIZE = 9
 
 
@@ -62,10 +62,10 @@ def run_game(
                 kakunin[player] += 1
                 goshi.remove(captured_player)
                 maketa.append(captured_player)
-                if isinstance(captured_player, QLearningAgent) or isinstance(captured_player, RandomForestAgent):
+                if isinstance(captured_player, QLearningAgent) :
                     captured_player.learn(current_state, None, -10.0, goban.clone())
         next_state = goban.clone()
-        if isinstance(player, QLearningAgent) or isinstance(player, RandomForestAgent) and player in goshi:
+        if isinstance(player, QLearningAgent) and player in goshi:
             player.learn(current_state, ten, reward, next_state )
         # The player is added to the end of the list, waiting for its
         # next turn
