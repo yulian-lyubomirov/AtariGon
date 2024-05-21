@@ -12,19 +12,20 @@ class Plepito(Goshi):
         self.gamma = gamma  # Discount factor
         self.epsilon = epsilon  # Exploration rate
         self.q_table = defaultdict(float)  # Q-table
+        self.places_stone=False
 
     def get_state(self, goban):
         """Get a hashable representation of the board state."""
         return tuple(tuple(row) for row in goban.ban)
 
-    def decide(self, goban: 'Goban') -> Optional[Ten]:
-        state = self.get_state(goban)
-        if random.uniform(0, 1) < self.epsilon:
-            # Explorar: movimiento aleatorio
-            return self.random_move(goban)
-        else:
-            # Explotar: movimiento con el mayor valor Q
-            return self.best_move(goban, state)
+    # def decide(self, goban: 'Goban') -> Optional[Ten]:
+    #     state = self.get_state(goban)
+    #     if random.uniform(0, 1) < self.epsilon:
+    #         # Explorar: movimiento aleatorio
+    #         return self.random_move(goban)
+    #     else:
+    #         # Explotar: movimiento con el mayor valor Q
+    #         return self.best_move(goban, state)
 
     def random_move(self, goban):
         valid_moves=self.get_valid_moves(goban)
@@ -83,12 +84,12 @@ class Plepito(Goshi):
         # if copy_goban.jishi(ten, self):
         #     return -10  # Penalización fuerte por suicidio
         if len(captured) > 0:
-            return 5 * len(captured)  # Recompensa por capturas
+            return 2 * len(captured)  # Recompensa por capturas
         if self.is_last_move(goban):
             return 10  # Gran recompensa por ser el último en poner piedra
         # Recompensa basada en el número de libertades
         # liberties = len(goban.kokyū_ten(ten))
-        return 1
+        return 0
 
     def is_last_move(self, goban):
         for row in goban.ban:
