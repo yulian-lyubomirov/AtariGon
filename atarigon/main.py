@@ -7,8 +7,7 @@ import sys
 from typing import Type, List
 
 from atarigon.api import Goshi, Goban
-from agents.qlearner import QLearningAgent
-from agents.plepito import Plepito
+
 MIN_BOARD_SIZE = 9
 
 
@@ -37,7 +36,6 @@ def run_game(
     shoshinsha = []  # The players that doesn't know how to play (初心者)
     while len(goshi) > 1:
         player = goshi.pop(0)
-        current_state = goban.clone()
         ten = player.decide(goban)
         if ten is None:
             # If the player passes, it's added to the end of the list
@@ -53,7 +51,7 @@ def run_game(
 
         # Stone is placed and captured players are removed from the game
         captured = goban.place_stone(ten, player)
-        reward = 5.0 * len(captured)+1
+        # reward = 5.0 * len(captured)+1
         for captured_player in captured:
             # It maybe was an already captured player, so we check. If
             # not, the player score is incremented and the captured
@@ -62,15 +60,11 @@ def run_game(
                 kakunin[player] += 1
                 goshi.remove(captured_player)
                 maketa.append(captured_player)
-                if isinstance(captured_player, QLearningAgent) :
-                    captured_player.learn(current_state, None, -10.0, goban.clone())
-        next_state = goban.clone()
-        if isinstance(player, QLearningAgent) and player in goshi:
-            player.learn(current_state, ten, reward, next_state )
+                # if isinstance(captured_player, QLearningAgent) :
+                #     captured_player.learn(current_state, None, -10.0, goban.clone())
         # The player is added to the end of the list, waiting for its
         # next turn
         goshi.append(player)
-
     # Now we compute the scores based on the captured players and on
     # when and how they ended playing
     for player in goshi:
@@ -79,8 +73,7 @@ def run_game(
         kakunin[player] += i
     for player in shoshinsha:
         kakunin[player] = 0
-    if player in goshi:
-        player.learn(current_state, ten, 20.0, current_state if goshi else None)
+
 
     return kakunin
 

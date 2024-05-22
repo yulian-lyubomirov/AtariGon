@@ -6,12 +6,8 @@ from typing import Optional
 import copy
 
 class Plepito(Goshi):
-    def __init__(self,alpha=0.01, gamma=0.99, epsilon=0.1):
+    def __init__(self):
         super().__init__("Plepito")
-        self.alpha = alpha  # Learning rate
-        self.gamma = gamma  # Discount factor
-        self.epsilon = epsilon  # Exploration rate
-        self.q_table = defaultdict(float)  # Q-table
         self.places_stone=False
 
     def get_state(self, goban):
@@ -70,7 +66,7 @@ class Plepito(Goshi):
         for row in range(goban.size):
             for col in range(goban.size):
                 move = Ten(row, col)
-                if move in (valid_moves.items()):
+                if move in valid_moves:
                     reward = valid_moves[move]+self.compute_reward(goban,move)
                     if reward > max_reward:
                         max_reward = reward
@@ -84,7 +80,7 @@ class Plepito(Goshi):
         # if copy_goban.jishi(ten, self):
         #     return -10  # Penalización fuerte por suicidio
         if len(captured) > 0:
-            return 2 * len(captured)  # Recompensa por capturas
+            return 4 * len(captured)  # Recompensa por capturas
         if self.is_last_move(goban):
             return 10  # Gran recompensa por ser el último en poner piedra
         # Recompensa basada en el número de libertades
