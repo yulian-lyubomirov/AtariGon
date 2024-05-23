@@ -4,6 +4,14 @@ from collections import defaultdict
 from typing import Optional
 import copy
 from atarigon.api import Goshi, Goban, Ten
+from typing import List, Optional, Set, NamedTuple
+
+from atarigon.exceptions import (
+    NotEnoughPlayersError,
+    SmallBoardError,
+    InvalidMoveError,
+    HikūtenError, KūtenError,
+)
 
 class QLearningAgent(Goshi):
     def __init__(self, epsilon: float = 0.01, alpha: float = 0.01, gamma: float = 0.9):
@@ -37,7 +45,8 @@ class QLearningAgent(Goshi):
             return empty_positions[best_index]
         
 
-    def compute_reward(self, goban, ten,captured):
+    def compute_reward(self, goban, ten):
+        captured = self.check_captures(ten, goban)
         if len(captured) > 0:
             return 2 * len(captured)  # Recompensa por capturas
         if self.is_terminal(goban):
@@ -49,14 +58,10 @@ class QLearningAgent(Goshi):
     
 
     def learn(self, goban, action) -> None:
-        state = copy.deepcopy(goban)
-        print(goban)
-        print(state)
-        # state.print_board()
-        next_state = copy.deepcopy(state)
+        state = goban
+        next_state = goban
         current_q = self.q_value(state, action)
-        captured = state.place_stone(action, self)
-        reward = self.compute_reward(state, action,captured)
+        reward = self.compute_reward(state, action)
         if self.is_terminal(next_state):
             max_future_q = 0
         else:
@@ -91,6 +96,34 @@ class QLearningAgent(Goshi):
 
     def is_terminal(self, state: 'Goban') -> bool:
         return not any(Ten(row, col) for row in range(len(state.ban)) for col in range(len(state.ban[row])) if state.ban[row][col] is None)
-    def hash_state(self, state: Goban) -> str:
-        """Creates a hashable representation of the board state."""
-        return ''.join(''.join(str(cell) for cell in row) for row in state.ban)
+    def check_captures(self, ten: Ten, goban) -> Set[Goshi]:
+        """Checks whether the group at the given position has liberties.
+
+        :param ten: The position to check.
+        :param goshi: The player making the move.
+        :return: A set with the players that were captured. If no players
+            were captured, the set is empty.
+        """
+        if not goban.goban_no_naka(ten):
+            raise InvalidMoveError(ten)
+        row, col = ten
+        if goban.ban[row][col] is not None:
+            raise HikūtenError(ten)
+        captured = set()
+        for betsu_no_ten in goban.shūi(ten):
+            taisen_aite = goban.ban[betsu_no_ten.row][betsu_no_ten.col]
+            if taisen_aite is None:
+                # If the neighbor is empty, we don't capture anything
+                continue
+            if taisen_aite == self:
+                # If the neighbor is us, we don't capture anything
+                continue
+            if goban.kokyū_ten(betsu_no_ten):
+                # The neighbor has liberties, we don't capture it
+                continue
+
+            # The neighbour has no liberties, so we capture it
+            goban.toru(betsu_no_ten)
+            captured.add(taisen_aite)
+        return captured
+    

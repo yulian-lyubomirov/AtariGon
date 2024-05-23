@@ -37,14 +37,14 @@ class Bugolara(Goshi):
         valid_moves=self.get_valid_moves(goban)
         return random.choice(valid_moves) if valid_moves else None
     
-    def get_valid_moves(self,goban):        
-        valid_moves = [
-            Ten(row, col)
-            for row in range(len(goban.ban))
-            for col in range(len(goban.ban[row]))
-            if goban.ban[row][col] is None
-        ]
-        return valid_moves
+    # def get_valid_moves(self,goban):        
+    #     valid_moves = [
+    #         Ten(row, col)
+    #         for row in range(len(goban.ban))
+    #         for col in range(len(goban.ban[row]))
+    #         if goban.ban[row][col] is None
+    #     ]
+    #     return valid_moves
     
     def compute_reward(self, goban: Goban, ten: Ten):
         copy_goban = copy.deepcopy(goban)
