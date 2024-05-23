@@ -61,17 +61,17 @@ class Plepito(Goshi):
 
     def decide(self, goban):
         max_reward = -1000
-        best_move = None
-        valid_moves=self.check_liberties_in_empty_positions(goban)
-        for row in range(goban.size):
-            for col in range(goban.size):
-                move = Ten(row, col)
-                if move in valid_moves:
-                    reward = valid_moves[move]+self.compute_reward(goban,move)
-                    if reward > max_reward:
-                        max_reward = reward
-                        best_move = move
-        return best_move
+        valid_moves = self.check_liberties_in_empty_positions(goban)
+        move_rewards = {}
+        
+        for move in valid_moves:
+            reward = valid_moves[move] + self.compute_reward(goban, move)
+            move_rewards[move] = reward
+            if reward > max_reward:
+                max_reward = reward
+        
+        best_moves = [move for move, reward in move_rewards.items() if reward == max_reward]
+        return random.choice(best_moves)
 
     def compute_reward(self, goban, ten):
         copy_goban = copy.deepcopy(goban)
