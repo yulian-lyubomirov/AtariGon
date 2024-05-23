@@ -45,30 +45,41 @@ class Bugolara(Goshi):
             if goban.ban[row][col] is None
         ]
         return valid_moves
-    def compute_reward(self, goban, ten):
+    
+    def compute_reward(self, goban: Goban, ten: Ten):
         copy_goban = copy.deepcopy(goban)
-        # occupied_moves = self.get_occupied_moves(copy_goban)
-        reward=0
+        reward = 0
         captured = copy_goban.place_stone(ten, self)
-        # if copy_goban.jishi(ten, self):
-        #     return -10  # Penalización fuerte por suicidio
+
         if len(captured) > 0:
-            reward = 5 * len(captured)  # Recompensa por capturas
-        # if self.is_last_move(goban):
-        #     reward+= 10  # Gran recompensa por ser el último en poner piedra
+            reward += 5 * len(captured)  # Reward for captures
+
+        # Define adjacent positions
         adjacent_positions = [
             Ten(ten.row - 1, ten.col),
             Ten(ten.row + 1, ten.col),
             Ten(ten.row, ten.col - 1),
             Ten(ten.row, ten.col + 1)
         ]
-        #Sumar 1 punto por cada piedra propia adyacente
+
+        # Sum 1 point for each adjacent stone in self.my_stones
         adjacent_count = sum(
             1 for pos in adjacent_positions
-            if 0 <= pos.row < 19 and 0 <= pos.col < 19 and self.my_stones[pos.row, pos.col] == 1
+            if 0 <= pos.row < goban.size and 0 <= pos.col < goban.size and self.my_stones[pos.row, pos.col] == 1
         )
+        reward += adjacent_count
 
-        reward+=adjacent_count
+        # Check if ten is a corner position based on goban.size
+        is_corner = (ten.row in {0, goban.size - 1}) and (ten.col in {0, goban.size - 1})
+        
+        if is_corner:
+            no_non_self_adjacent_stones = all(
+                0 <= pos.row < goban.size and 0 <= pos.col < goban.size and 
+                (self.my_stones[pos.row, pos.col] == 1 or copy_goban.ban[pos.row][pos.col] is None)
+                for pos in adjacent_positions
+            )
+            if no_non_self_adjacent_stones:
+                reward += 20
 
         return reward
     
