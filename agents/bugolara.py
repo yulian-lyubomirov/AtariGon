@@ -59,7 +59,11 @@ class Bugolara(Goshi):
             Ten(ten.row - 1, ten.col),
             Ten(ten.row + 1, ten.col),
             Ten(ten.row, ten.col - 1),
-            Ten(ten.row, ten.col + 1)
+            Ten(ten.row, ten.col + 1),
+            Ten(ten.row+1,ten.col+1),
+            Ten(ten.row-1,ten.col-1),
+            Ten(ten.row+1,ten.col-1),
+            Ten(ten.row-1,ten.col+1),
         ]
 
         # Sum 1 point for each adjacent stone in self.my_stones
@@ -70,7 +74,7 @@ class Bugolara(Goshi):
         reward += adjacent_count
 
         # Check if ten is a corner position based on goban.size
-        is_corner = (ten.row in {0, goban.size - 1}) and (ten.col in {0, goban.size - 1})
+        is_corner = (ten.row in {0, goban.size-1}) and (ten.col in {0, goban.size-1})
         
         if is_corner:
             no_non_self_adjacent_stones = all(
@@ -95,4 +99,6 @@ class Bugolara(Goshi):
                 max_reward = reward
         
         best_moves = [move for move, reward in move_rewards.items() if reward == max_reward]
+        best_move = random.choice(best_moves)
+        self.my_stones[best_move.row][best_move.col]=1
         return random.choice(best_moves)
