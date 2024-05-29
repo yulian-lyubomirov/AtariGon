@@ -7,6 +7,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from atarigon.api import Goshi, Goban, Ten
+from atarigon.exceptions import KūtenError
+
 
 # Define the neural network model
 class QNetwork(nn.Module):
@@ -32,7 +34,7 @@ class Torchman(Goshi):
         self.model = QNetwork(self.board_size)
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         self.criterion = nn.MSELoss()
-        self.epsilon = 0.2  # Exploration rate
+        self.epsilon = 0.05  # Exploration rate
         self.gamma = 0.9  # Discount factor
         self.state_history = []  # Store the history of states
         self.action_history = []  # Store the history of actions
@@ -46,34 +48,61 @@ class Torchman(Goshi):
                     return False
         return True
     
-    def decide(self, goban: 'Goban') -> Optional[Ten]:
-        state = self.get_state(goban)
-        state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
-        if self.is_game_ended(goban):
-            self.train
-        # if random.uniform(0, 1) < self.epsilon:
-        #     action = self.random_action(goban)
-        # else:
-        with torch.no_grad():
-            q_values = self.model(state_tensor)
-            action = self.valid_action(q_values, goban)
-            
-        x, y = divmod(action, self.board_size)
-        reward = self.compute_reward(goban,Ten(x,y))
 
-        self.state_history.append(state)
-        self.action_history.append(action)
-        self.reward_history.append(reward)
-        return Ten(x, y)
-    def compute_reward(self, goban: Goban, ten: Ten):
+    def compute_reward(self, goban: Goban, ten: Ten) -> int:
         copy_goban = copy.deepcopy(goban)
         reward = 0
         captured = copy_goban.place_stone(ten, self)
         
         if captured:
-            reward += 5 * len(captured)
+            reward += 10 * len(captured)
+        
+        # Check the liberties of the player's group after placing the stone
+        new_group_liberties = copy_goban.kokyū_ten(ten)
+
+        # If player´s stone leaves only 1 liberty for a group, give negative reward
+        if len(new_group_liberties) ==1:
+            reward -=10
+        elif len(new_group_liberties)>=2:
+            reward += len(new_group_liberties)
+
+        
+        adjacent_positions = goban.shūi(ten)
+    
+        for pos in adjacent_positions:
+            if goban.ban[pos.row][pos.col] is not None and goban.ban[pos.row][pos.col] != self:
+                try:
+                    enemy_liberties = self.liberties(copy_goban, pos)
+                    if len(enemy_liberties) == 1:
+                        reward += 3
+                except KūtenError:
+                    # Skip empty positions
+                    continue
         
         return reward
+    
+    def liberties(self, goban: Goban, pos: Ten) -> set[Ten]:
+        group = self.get_group(goban, pos, set())
+        liberties = set()
+        for stone in group:
+            neighbors = goban.shūi(stone)
+            for neighbor in neighbors:
+                if goban.ban[neighbor.row][neighbor.col] is None:
+                    liberties.add(neighbor)
+        return liberties
+    
+    def get_group(self, goban: Goban, pos: Ten, visited: set[Ten]) -> set[Ten]:
+        group = set()
+        to_visit = [pos]
+        while to_visit:
+            current = to_visit.pop()
+            if current not in visited:
+                visited.add(current)
+                group.add(current)
+                neighbors = [n for n in goban.shūi(current) if goban.ban[n.row][n.col] == goban.ban[pos.row][pos.col]]
+                to_visit.extend(neighbors)
+        return group
+    
     def get_state(self, goban: 'Goban') -> np.ndarray:
         # Create a state representation with three channels:
         # 0: empty positions, 1: player's stones, -1: opponent's stones
@@ -85,22 +114,51 @@ class Torchman(Goshi):
         state = np.stack([empty_board, player_board, opponent_board], axis=-1)
         return state.flatten()
 
-    def random_action(self, goban: 'Goban') -> int:
-        empty_positions = [(i, j) for i in range(self.board_size) for j in range(self.board_size) if goban.ban[i][j] == 0]
-        if not empty_positions:
-            return random.randint(0, self.board_size * self.board_size - 1)
-        action = random.choice(empty_positions)
-        return action[0] * self.board_size + action[1]
+    def random_action(self,q_values: torch.Tensor, goban: 'Goban') -> int:
+        valid_moves = []
+        for row in range(goban.size):
+            for col in range(goban.size):
+                if goban.ban[row][col] is None:
+                    valid_moves.append((row, col)) 
+
+        if valid_moves:
+            return random.choice(valid_moves)
+        else:
+            return None
 
     def valid_action(self, q_values: torch.Tensor, goban: 'Goban') -> int:
         q_values = q_values.squeeze().cpu().numpy()
         sorted_actions = np.argsort(-q_values)  # Sort actions by Q-value in descending order
         # print(sorted_actions)
+
         for action in sorted_actions:
             x, y = divmod(action, self.board_size)
-            if goban.ban[x][y] == None:  # Check if the position is empty
+            if goban.ban[x][y] == None:
                 return action
         return None #sorted_actions[0]  # If no valid action is found, return the best available
+    
+    def decide(self, goban: 'Goban') -> Optional[Ten]:
+        state = self.get_state(goban)
+        state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+        if self.is_game_ended(goban):
+            self.train
+        if random.uniform(0, 1) < self.epsilon:
+            q_values = self.model(state_tensor) #sacar?
+            action = self.random_action(q_values,goban)
+            x,y=action
+        else:
+            with torch.no_grad():
+                q_values = self.model(state_tensor) #sacar?
+                action = self.valid_action(q_values, goban)
+                x, y = divmod(action, self.board_size)
+                
+        reward = self.compute_reward(goban,Ten(x,y))
+
+        self.state_history.append(state)
+        self.action_history.append(action)
+        self.reward_history.append(reward)
+        return Ten(x, y)
+    
 
     def train(self):
         # Compute the reward for each action and perform backpropagation
