@@ -32,9 +32,9 @@ class Torchman(Goshi):
         super().__init__("Torchman")
         self.board_size = 9
         self.model = QNetwork(self.board_size)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.01)
         self.criterion = nn.MSELoss()
-        self.epsilon = 0.05  # Exploration rate
+        self.epsilon = 0.2  # Exploration rate
         self.gamma = 0.9  # Discount factor
         self.state_history = []  # Store the history of states
         self.action_history = []  # Store the history of actions
@@ -141,17 +141,18 @@ class Torchman(Goshi):
         state = self.get_state(goban)
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
         if self.is_game_ended(goban):
-            self.train
+            self.train()
         if random.uniform(0, 1) < self.epsilon:
             q_values = self.model(state_tensor) #sacar?
             action = self.random_action(q_values,goban)
             x,y=action
+            action = x*y
         else:
             with torch.no_grad():
                 q_values = self.model(state_tensor) #sacar?
                 action = self.valid_action(q_values, goban)
                 x, y = divmod(action, self.board_size)
-                
+
         reward = self.compute_reward(goban,Ten(x,y))
 
         self.state_history.append(state)
@@ -166,12 +167,16 @@ class Torchman(Goshi):
             state_tensor = torch.tensor(self.state_history[i], dtype=torch.float32).unsqueeze(0)
             action = self.action_history[i]
             reward = self.reward_history[i]
-            action_tensor = torch.tensor([action], dtype=torch.int64)
+            action_tensor = torch.tensor([[action]], dtype=torch.int64)  # Ensure the correct shape
+
             reward_tensor = torch.tensor([reward], dtype=torch.float32)
 
             # Compute the Q value for the current state and action
             q_values = self.model(state_tensor)
-            q_value = q_values.gather(1, action_tensor.unsqueeze(-1)).squeeze(-1)
+            # q_value = q_values.gather(1, action_tensor.unsqueeze(-1)).squeeze(-1)
+            print(f"{q_values.shape} {action_tensor} ")
+
+            q_value = q_values.gather(1, action_tensor).squeeze(-1)
 
             # Compute the target Q value
             with torch.no_grad():
@@ -184,7 +189,7 @@ class Torchman(Goshi):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-
+        print('------------------')
         # Clear the history after training
         self.state_history = []
         self.action_history = []
