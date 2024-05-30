@@ -20,17 +20,23 @@ class AtariGonEnv(gym.Env):
     def step(self, ten, player):
     
         done = False 
-        captured = self.goban.place_stone(ten, self.player)
         if player.name == self.player.name:
+            captured = self.goban.place_stone(ten, self.player)
 
             reward = self.compute_reward(ten,captured)
             self.turn += 1
-            self.render()
+            # print('-----------')
+            # print('yo')
+            # self.render()
 
             obs = self.get_state()
             return obs, reward, done, {}
         else:
-            return None
+            captured = self.goban.place_stone(ten,player)
+            # print('-----------')
+            # print('el')
+            # self.render()
+            return None,None,None,None
 
     def reset(self):
         self.goban = Goban(size=self.size, goshi=self.players)

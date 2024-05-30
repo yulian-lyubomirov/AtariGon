@@ -80,16 +80,34 @@ class QAgent(Goshi):
             return random.choice(valid_moves)
         else:
             return None
-
-    def valid_action(self, q_values: torch.Tensor, goban: 'Goban') -> int:
+    def get_valid_positions_from_state(self,state: np.ndarray) -> list[int]:
+        # Reshape the state to its original 3-channel form
+        state = state.reshape((self.board_size, self.board_size, 3))
+        
+        # Extract the empty positions channel (first channel)
+        empty_positions = state[:, :, 0]
+        
+        # Identify valid actions (positions with value 1 in the empty positions channel)
+        valid_positions = np.where(empty_positions == 1)
+        valid_actions = [x * self.board_size + y for x, y in zip(valid_positions[0], valid_positions[1])]
+        
+        return valid_actions
+    
+    def valid_action(self, q_values: torch.Tensor, goban) -> int:
         q_values = q_values.squeeze().cpu().numpy()
         sorted_actions = np.argsort(-q_values)  # Sort actions by Q-value in descending order
         # print(sorted_actions)
-
-        for action in sorted_actions:
-            x, y = divmod(action, self.board_size)
-            if goban.ban[x][y] == None:
-                return action,q_values[action]
+        if not isinstance(goban, Goban):
+            valid_positions = self.get_valid_positions_from_state(goban)
+            for action in sorted_actions:
+                if action in valid_positions:
+                    return action, q_values[action]
+            return None
+        else:
+            for action in sorted_actions:
+                x, y = divmod(action, self.board_size)
+                if goban.ban[x][y] == None:
+                    return action,q_values[action]
         return None #sorted_actions[0]  # If no valid action is found, return the best available
     
     def decide(self, goban: 'Goban') -> Optional[Ten]:
@@ -119,16 +137,16 @@ class QAgent(Goshi):
         return Ten(x, y)
     
     def update_memory(self,reward,next_state):
-        print('update')
+        # print('update')
         self.memory.append((self.action,reward,self.state,next_state))
     
 
     def train(self):
         # Compute the reward for each action and perform backpropagation
-        print(self.memory)
+        # print(self.memory)
         for i in range(len(self.memory)):
             action, reward, state, next_state = self.memory[i]
-            print(f"{action}{reward}{state}{next_state}")
+            # print(f"{action}{reward}{state}{next_state}")
             state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
             next_state_tensor = torch.tensor(next_state, dtype=torch.float32).unsqueeze(0)
             action_tensor = torch.tensor([[action]], dtype=torch.int64)  # Ensure the correct shape
@@ -149,7 +167,7 @@ class QAgent(Goshi):
                 target_q_value = reward_tensor + self.gamma * max_next_q_value
 
             # Compute the loss
-            print(f"{q_value}  {target_q_value}")
+            # print(f"{q_value}  {target_q_value}")
             loss = self.criterion(q_value, target_q_value)
 
             # Perform backpropagation

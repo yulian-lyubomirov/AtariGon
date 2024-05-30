@@ -38,12 +38,11 @@ def run_game(
     shoshinsha = []  # The players that doesn't know how to play (初心者)
     while len(goshi) > 1:
         player = goshi.pop(0)
+        # print('-----------')
         ten = player.decide(goban)
-        if player.name=='QAgent':      
-            obs, reward, done, info = env.step(ten,player)
-            player.update_memory(reward=reward,next_state=obs)
-        else:
-            env.step(ten,player)
+        # print('main')
+        # goban.print_board()
+
         
         if ten is None:
             # If the player passes, it's added to the end of the list
@@ -59,6 +58,9 @@ def run_game(
 
         # Stone is placed and captured players are removed from the game
         captured = goban.place_stone(ten, player)
+        obs, reward, done, info = env.step(ten,player)
+        if player.name=='QAgent':      
+            player.update_memory(reward=reward,next_state=obs)
 
         for captured_player in captured:
             # It maybe was an already captured player, so we check. If
