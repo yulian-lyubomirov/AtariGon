@@ -5,7 +5,8 @@ import os
 import random
 import sys
 from typing import Type, List
-
+from agents.QNetwork import QNetwork
+from AtariGonEnv import AtariGonEnv
 from atarigon.api import Goshi, Goban
 
 MIN_BOARD_SIZE = 9
@@ -25,7 +26,7 @@ def run_game(
         starts. Defauts to True.
     :return: A dictionary with the scores for each player.
     """
-
+    env = AtariGonEnv(players=goshi,size=goban.size)
     # Randomize the order of the players
     goshi = goshi.copy()  # So we don't mess with the original list
     if shuffle:
@@ -37,6 +38,10 @@ def run_game(
     while len(goshi) > 1:
         player = goshi.pop(0)
         ten = player.decide(goban)
+        if isinstance(player,QNetwork):      
+            obs, reward, done, info = env.step(ten)
+            player.update_memory(reward=reward,next_state=obs)
+        
         if ten is None:
             # If the player passes, it's added to the end of the list
             # and the next player is called
@@ -51,7 +56,7 @@ def run_game(
 
         # Stone is placed and captured players are removed from the game
         captured = goban.place_stone(ten, player)
-        # reward = 5.0 * len(captured)+1
+
         for captured_player in captured:
             # It maybe was an already captured player, so we check. If
             # not, the player score is incremented and the captured
@@ -60,11 +65,10 @@ def run_game(
                 kakunin[player] += 1
                 goshi.remove(captured_player)
                 maketa.append(captured_player)
-                # if isinstance(captured_player, QLearningAgent) :
-                #     captured_player.learn(current_state, None, -10.0, goban.clone())
         # The player is added to the end of the list, waiting for its
         # next turn
         goshi.append(player)
+
     # Now we compute the scores based on the captured players and on
     # when and how they ended playing
     for player in goshi:
@@ -73,8 +77,6 @@ def run_game(
         kakunin[player] += i
     for player in shoshinsha:
         kakunin[player] = 0
-
-
     return kakunin
 
 
@@ -130,6 +132,11 @@ def main():
         )
         for player, score in results.items():
             kakunin[player].append(score)
+            if isinstance(player,QNetwork):
+                player.train()
+                player.save("Qnetwork_weights.pth")
+            # if isinstance(player,Qnetwork):
+                # player.save_weights("torchman_weights.pth")
 
     # Leaderboard
     longest_name = max(max(len(str(p)) for p in players), len('Goshi'))

@@ -29,17 +29,26 @@ class QNetwork(nn.Module):
 # Implementing the Q-learning agent
 class Torchman(Goshi):
     def __init__(self):
-        super().__init__("Torchman")
+        super().__init__("Qnetwork")
         self.board_size = 9
         self.model = QNetwork(self.board_size)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.01)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         self.criterion = nn.MSELoss()
-        self.epsilon = 0.2  # Exploration rate
+        self.epsilon = 0.05  # Exploration rate
         self.gamma = 0.9  # Discount factor
-        self.state_history = []  # Store the history of states
-        self.action_history = []  # Store the history of actions
-        self.reward_history = []  # Store the history of rewards
+        self.action = None
+        self.state = None
+        self.memory = []
 
+
+    def save_weights(self, path: str):
+        torch.save(self.model.state_dict(), path)
+        print(f"Weights saved to {path}")
+
+    def load_weights(self, path: str):
+        self.model.load_state_dict(torch.load(path))
+        self.model.eval()  # Set the model to evaluation mode
+        print(f"Weights loaded from {path}")
 
     def is_game_ended(self,goban: Goban) -> bool:
         for row in goban.ban:
@@ -49,60 +58,6 @@ class Torchman(Goshi):
         return True
     
 
-    def compute_reward(self, goban: Goban, ten: Ten) -> int:
-        copy_goban = copy.deepcopy(goban)
-        reward = 0
-        captured = copy_goban.place_stone(ten, self)
-        
-        if captured:
-            reward += 10 * len(captured)
-        
-        # Check the liberties of the player's group after placing the stone
-        new_group_liberties = copy_goban.kokyū_ten(ten)
-
-        # If player´s stone leaves only 1 liberty for a group, give negative reward
-        if len(new_group_liberties) ==1:
-            reward -=10
-        elif len(new_group_liberties)>=2:
-            reward += len(new_group_liberties)
-
-        
-        adjacent_positions = goban.shūi(ten)
-    
-        for pos in adjacent_positions:
-            if goban.ban[pos.row][pos.col] is not None and goban.ban[pos.row][pos.col] != self:
-                try:
-                    enemy_liberties = self.liberties(copy_goban, pos)
-                    if len(enemy_liberties) == 1:
-                        reward += 3
-                except KūtenError:
-                    # Skip empty positions
-                    continue
-        
-        return reward
-    
-    def liberties(self, goban: Goban, pos: Ten) -> set[Ten]:
-        group = self.get_group(goban, pos, set())
-        liberties = set()
-        for stone in group:
-            neighbors = goban.shūi(stone)
-            for neighbor in neighbors:
-                if goban.ban[neighbor.row][neighbor.col] is None:
-                    liberties.add(neighbor)
-        return liberties
-    
-    def get_group(self, goban: Goban, pos: Ten, visited: set[Ten]) -> set[Ten]:
-        group = set()
-        to_visit = [pos]
-        while to_visit:
-            current = to_visit.pop()
-            if current not in visited:
-                visited.add(current)
-                group.add(current)
-                neighbors = [n for n in goban.shūi(current) if goban.ban[n.row][n.col] == goban.ban[pos.row][pos.col]]
-                to_visit.extend(neighbors)
-        return group
-    
     def get_state(self, goban: 'Goban') -> np.ndarray:
         # Create a state representation with three channels:
         # 0: empty positions, 1: player's stones, -1: opponent's stones
@@ -153,34 +108,41 @@ class Torchman(Goshi):
                 action = self.valid_action(q_values, goban)
                 x, y = divmod(action, self.board_size)
 
-        reward = self.compute_reward(goban,Ten(x,y))
+        # reward = self.compute_reward(goban,Ten(x,y))
+        # self.action_history.append(action)
+        # self.state_history.append(state)
+        self.action = action
+        self.state = state
 
-        self.state_history.append(state)
-        self.action_history.append(action)
-        self.reward_history.append(reward)
+        # self.reward_history.append(reward)
         return Ten(x, y)
+    
+    def update_memory(self,reward,next_state):
+        self.memory.append((self.action,reward,self.state,next_state))
     
 
     def train(self):
         # Compute the reward for each action and perform backpropagation
-        for i in range(len(self.action_history)):
-            state_tensor = torch.tensor(self.state_history[i], dtype=torch.float32).unsqueeze(0)
-            action = self.action_history[i]
-            reward = self.reward_history[i]
+        for i in range(len(self.memory)):
+            action, reward, state, next_state = self.memory[i]
+
+            state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
+            next_state_tensor = torch.tensor(next_state, dtype=torch.float32).unsqueeze(0)
             action_tensor = torch.tensor([[action]], dtype=torch.int64)  # Ensure the correct shape
 
             reward_tensor = torch.tensor([reward], dtype=torch.float32)
 
             # Compute the Q value for the current state and action
             q_values = self.model(state_tensor)
-            # q_value = q_values.gather(1, action_tensor.unsqueeze(-1)).squeeze(-1)
-            print(f"{q_values.shape} {action_tensor} ")
-
             q_value = q_values.gather(1, action_tensor).squeeze(-1)
 
-            # Compute the target Q value
+            # Compute the Q value for the next state
             with torch.no_grad():
-                target_q_value = reward_tensor
+                next_q_values = self.model(next_state_tensor)
+                max_next_q_value = torch.max(next_q_values)
+
+                # Compute the target Q value using the Bellman equation
+                target_q_value = reward_tensor + self.gamma * max_next_q_value
 
             # Compute the loss
             loss = self.criterion(q_value, target_q_value)
@@ -189,7 +151,5 @@ class Torchman(Goshi):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-        print('------------------')
         # Clear the history after training
-        self.state_history = []
-        self.action_history = []
+        self.memory = []
