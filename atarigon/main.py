@@ -5,7 +5,7 @@ import os
 import random
 import sys
 from typing import Type, List
-from agents.QNetwork import QNetwork
+from agents.QAgent import QAgent
 from AtariGonEnv import AtariGonEnv
 from atarigon.api import Goshi, Goban
 
@@ -16,6 +16,7 @@ def run_game(
         *,
         goban: Goban,
         goshi: list[Goshi],
+        env,
         shuffle=True
 ) -> dict[Goshi, int]:
     """Run a game of Go and return the scores for each player.
@@ -26,7 +27,7 @@ def run_game(
         starts. Defauts to True.
     :return: A dictionary with the scores for each player.
     """
-    env = AtariGonEnv(players=goshi,size=goban.size)
+
     # Randomize the order of the players
     goshi = goshi.copy()  # So we don't mess with the original list
     if shuffle:
@@ -38,9 +39,11 @@ def run_game(
     while len(goshi) > 1:
         player = goshi.pop(0)
         ten = player.decide(goban)
-        if isinstance(player,QNetwork):      
-            obs, reward, done, info = env.step(ten)
+        if player.name=='QAgent':      
+            obs, reward, done, info = env.step(ten,player)
             player.update_memory(reward=reward,next_state=obs)
+        else:
+            env.step(ten,player)
         
         if ten is None:
             # If the player passes, it's added to the end of the list
@@ -77,6 +80,7 @@ def run_game(
         kakunin[player] += i
     for player in shoshinsha:
         kakunin[player] = 0
+
     return kakunin
 
 
@@ -125,18 +129,25 @@ def main():
 
     # The player's scores (確認)
     kakunin: Type[Goshi, List[int]] = {player: [] for player in players}
+    for player in players:
+        if player.name == 'QAgent':
+            goban = Goban(size=args.size, goshi=players) 
+            env = AtariGonEnv(players=players,player=player,size=args.size)
     for game in range(args.games):
         results = run_game(
             goban=Goban(size=args.size, goshi=players),
             goshi=players,
+            env=env
         )
         for player, score in results.items():
             kakunin[player].append(score)
-            if isinstance(player,QNetwork):
-                player.train()
-                player.save("Qnetwork_weights.pth")
-            # if isinstance(player,Qnetwork):
-                # player.save_weights("torchman_weights.pth")
+            # print(isinstance(player,Goshi))
+            # if isinstance(player,QAgent):
+            #     print('hi2')
+            #     player.train()
+            #     player.save_weights("QAgent_weights.pth")
+        env.reset()
+
 
     # Leaderboard
     longest_name = max(max(len(str(p)) for p in players), len('Goshi'))

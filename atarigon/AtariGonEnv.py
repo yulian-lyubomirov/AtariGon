@@ -7,25 +7,30 @@ from api import Goban, Ten, Goshi, NotEnoughPlayersError, SmallBoardError, Inval
 class AtariGonEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,players, size=9):
+    def __init__(self,players, player,size=9):
         super(AtariGonEnv, self).__init__()
         self.size = size
         self.players = players
+        self.player = player
         self.reset()
 
-    def step(self, action):
-        row, col = divmod(action, self.size)
-        ten = Ten(row, col)
-        done = False
+    # def update_board(self,ten,player):
+    #     self.goban.place_stone(ten,player)
 
-        
+    def step(self, ten, player):
+    
+        done = False 
         captured = self.goban.place_stone(ten, self.player)
-        reward = self.compute_reward(self.goban, ten,captured)
-        self.turn += 1
+        if player.name == self.player.name:
 
+            reward = self.compute_reward(ten,captured)
+            self.turn += 1
+            self.render()
 
-        obs = self.get_state()
-        return obs, reward, done, {}
+            obs = self.get_state()
+            return obs, reward, done, {}
+        else:
+            return None
 
     def reset(self):
         self.goban = Goban(size=self.size, goshi=self.players)
@@ -71,10 +76,10 @@ class AtariGonEnv(gym.Env):
 
         return reward
 
-    def get_state(self, goban: 'Goban') -> np.ndarray:
+    def get_state(self) -> np.ndarray:
         # Create a state representation with three channels:
         # 0: empty positions, 1: player's stones, -1: opponent's stones
-        board = np.array(goban.ban, dtype=object)
+        board = np.array(self.goban.ban, dtype=object)
         player_board = (board == self).astype(np.float32)
         opponent_board = ((board != self) & (board != None)).astype(np.float32)
         empty_board = (board == None).astype(np.float32)
