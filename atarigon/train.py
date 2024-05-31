@@ -5,7 +5,8 @@ import os
 import random
 import sys
 from typing import Type, List
-
+from agents.QAgent import QAgent
+from AtariGonEnv import AtariGonEnv
 from atarigon.api import Goshi, Goban
 
 MIN_BOARD_SIZE = 9
@@ -15,6 +16,7 @@ def run_game(
         *,
         goban: Goban,
         goshi: list[Goshi],
+        env,
         shuffle=True
 ) -> dict[Goshi, int]:
     """Run a game of Go and return the scores for each player.
@@ -36,7 +38,12 @@ def run_game(
     shoshinsha = []  # The players that doesn't know how to play (初心者)
     while len(goshi) > 1:
         player = goshi.pop(0)
+        # print('-----------')
         ten = player.decide(goban)
+        # print('main')
+        # goban.print_board()
+
+        
         if ten is None:
             # If the player passes, it's added to the end of the list
             # and the next player is called
@@ -51,6 +58,10 @@ def run_game(
 
         # Stone is placed and captured players are removed from the game
         captured = goban.place_stone(ten, player)
+        obs, reward, done, info = env.step(ten,player)
+        if player.name=='QAgent':      
+            player.update_memory(reward=reward,next_state=obs)
+
         for captured_player in captured:
             # It maybe was an already captured player, so we check. If
             # not, the player score is incremented and the captured
@@ -59,7 +70,6 @@ def run_game(
                 kakunin[player] += 1
                 goshi.remove(captured_player)
                 maketa.append(captured_player)
-
         # The player is added to the end of the list, waiting for its
         # next turn
         goshi.append(player)
@@ -121,13 +131,25 @@ def main():
 
     # The player's scores (確認)
     kakunin: Type[Goshi, List[int]] = {player: [] for player in players}
+    for player in players:
+        if player.name == 'QAgent':
+            goban = Goban(size=args.size, goshi=players) 
+            env = AtariGonEnv(players=players,player=player,size=args.size)
     for game in range(args.games):
         results = run_game(
             goban=Goban(size=args.size, goshi=players),
             goshi=players,
+            env=env
         )
         for player, score in results.items():
             kakunin[player].append(score)
+            # print(isinstance(player,Goshi))
+            # if isinstance(player,QAgent):
+            #     print('hi2')
+            #     player.train()
+            #     player.save_weights("QAgent_weights.pth")
+        env.reset()
+
 
     # Leaderboard
     longest_name = max(max(len(str(p)) for p in players), len('Goshi'))
