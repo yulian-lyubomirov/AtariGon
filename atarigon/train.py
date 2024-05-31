@@ -5,8 +5,8 @@ import os
 import random
 import sys
 from typing import Type, List
-# from agents.QAgent import QAgent
-from agents.Qentrenador import QEntrenador
+from agents.QAgent import QAgent
+# from agents.Qentrenador import QEntrenador
 from AtariGonEnv import AtariGonEnv
 from atarigon.api import Goshi, Goban
 
@@ -39,12 +39,7 @@ def run_game(
     shoshinsha = []  # The players that doesn't know how to play (初心者)
     while len(goshi) > 1:
         player = goshi.pop(0)
-        # print('-----------')
         ten = player.decide(goban)
-        # print('main')
-        # goban.print_board()
-
-        
         if ten is None:
             # If the player passes, it's added to the end of the list
             # and the next player is called
@@ -60,7 +55,8 @@ def run_game(
         # Stone is placed and captured players are removed from the game
         captured = goban.place_stone(ten, player)
         obs, reward, done, info = env.step(ten,player)
-        if player.name=='QAgent':      
+
+        if player.name=='QEntrenador' or player.name == 'QAgent':      
             player.update_memory(reward=reward,next_state=obs)
 
         for captured_player in captured:
@@ -74,6 +70,8 @@ def run_game(
         # The player is added to the end of the list, waiting for its
         # next turn
         goshi.append(player)
+        if done:
+            break
 
     # Now we compute the scores based on the captured players and on
     # when and how they ended playing
@@ -133,21 +131,21 @@ def main():
     # The player's scores (確認)
     kakunin: Type[Goshi, List[int]] = {player: [] for player in players}
     for player in players:
-        if player.name == 'QAgent':
-            goban = Goban(size=args.size, goshi=players) 
+        if player.name == 'QAgent' or player.name =='QEntrenador':
+            # goban = Goban(size=args.size, goshi=players) 
             env = AtariGonEnv(players=players,player=player,size=args.size)
-        elif player.name =='QEntrenador':
-            env_entrenador = AtariGonEnv(players=players,player=player,size=args.size)
     for game in range(args.games):
         results = run_game(
             goban=Goban(size=args.size, goshi=players),
             goshi=players,
-            env=env_entrenador
+            env=env
         )
         for player, score in results.items():
+            if player.name == 'QAgent' or player.name =='QEntrenador':
+                player.train()
             kakunin[player].append(score)
         # env.reset()
-        env_entrenador.reset()
+        env.reset()
 
 
     # Leaderboard

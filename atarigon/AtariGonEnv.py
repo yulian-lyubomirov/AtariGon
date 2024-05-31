@@ -7,7 +7,7 @@ from api import Goban, Ten, Goshi, NotEnoughPlayersError, SmallBoardError, Inval
 class AtariGonEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self,players, player,size=9):
+    def __init__(self,players, player,size=19):
         super(AtariGonEnv, self).__init__()
         self.size = size
         self.players = players
@@ -16,13 +16,17 @@ class AtariGonEnv(gym.Env):
 
     # def update_board(self,ten,player):
     #     self.goban.place_stone(ten,player)
-
+    def is_game_ended(self) -> bool:
+        for row in self.goban.ban:
+            for stone in row:
+                if stone == self.player:
+                    return False
+        return True
     def step(self, ten, player):
     
-        done = False 
         if player.name == self.player.name:
             captured = self.goban.place_stone(ten, self.player)
-
+            done = self.is_game_ended()
             reward = self.compute_reward(ten,captured)
             self.turn += 1
             # print('-----------')
@@ -36,7 +40,9 @@ class AtariGonEnv(gym.Env):
             # print('-----------')
             # print('el')
             # self.render()
-            return None,None,None,None
+            done = self.is_game_ended()
+
+        return None,None,done,None
 
     def reset(self):
         self.goban = Goban(size=self.size, goshi=self.players)

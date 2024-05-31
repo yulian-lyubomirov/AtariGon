@@ -30,21 +30,21 @@ class QNetwork(nn.Module):
 
 class QEntrenador(Goshi):
     def __init__(self):
-        super().__init__("QEntrenador")
-        self.board_size = 9
+        super().__init__("Qentrenador")
+        self.board_size = 19
         self.model = QNetwork(self.board_size)
         self.learning_rate = 0.1
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
-        self.epsilon = 0.1
-        self.epsilon_min = 0.01  # Minimum epsilon value
+        self.epsilon = 0.0
+        self.epsilon_min = 0.0  # Minimum epsilon value
         self.epsilon_decay = 0.995  # Decay rate for epsilon
         self.gamma = 0.9  # Discount factor
         self.scheduler = CosineAnnealingLR(self.optimizer, T_max=1000, eta_min=0.01)
         self.action = None
         self.state = None
         self.memory = []
-        # self.load_weights(path='QTrainer_weights.pth')
+        self.load_weights(path='QTrainer_weights.pth')
 
     def save_weights(self, path: str):
         torch.save(self.model.state_dict(), path)
@@ -109,8 +109,8 @@ class QEntrenador(Goshi):
     def decide(self, goban: 'Goban') -> Optional[Ten]:
         state = self.get_state(goban)
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
-        if self.is_game_ended(goban):
-            self.train()
+        # if self.is_game_ended(goban):
+        #     self.train()
         if random.uniform(0, 1) < self.epsilon:
             q_values = self.model(state_tensor)
             action = self.random_action(q_values, goban)
@@ -130,9 +130,9 @@ class QEntrenador(Goshi):
         self.memory.append((self.action, reward, self.state, next_state))
 
     def train(self):
-        for param_group in self.optimizer.param_groups:
-            learning_rate = param_group['lr']
-            print(f"Current Learning Rate: {learning_rate:.6f}")
+        # for param_group in self.optimizer.param_groups:
+        #     learning_rate = param_group['lr']
+        #     print(f"Current Learning Rate: {learning_rate:.6f}")
         for i in range(len(self.memory)):
             action, reward, state, next_state = self.memory[i]
             state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
@@ -154,9 +154,9 @@ class QEntrenador(Goshi):
             self.optimizer.step()
             self.save_weights("QTrainer_weights.pth")
 
-        # self.scheduler.step()
+        self.scheduler.step()
         self.memory = []
-        # self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
     # def adjust_learning_rate(self):
     #     for param_group in self.optimizer.param_groups:
