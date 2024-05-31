@@ -5,7 +5,8 @@ import os
 import random
 import sys
 from typing import Type, List
-from agents.QAgent import QAgent
+# from agents.QAgent import QAgent
+from agents.Qentrenador import QEntrenador
 from AtariGonEnv import AtariGonEnv
 from atarigon.api import Goshi, Goban
 
@@ -135,20 +136,18 @@ def main():
         if player.name == 'QAgent':
             goban = Goban(size=args.size, goshi=players) 
             env = AtariGonEnv(players=players,player=player,size=args.size)
+        elif player.name =='QEntrenador':
+            env_entrenador = AtariGonEnv(players=players,player=player,size=args.size)
     for game in range(args.games):
         results = run_game(
             goban=Goban(size=args.size, goshi=players),
             goshi=players,
-            env=env
+            env=env_entrenador
         )
         for player, score in results.items():
             kakunin[player].append(score)
-            # print(isinstance(player,Goshi))
-            # if isinstance(player,QAgent):
-            #     print('hi2')
-            #     player.train()
-            #     player.save_weights("QAgent_weights.pth")
-        env.reset()
+        # env.reset()
+        env_entrenador.reset()
 
 
     # Leaderboard
