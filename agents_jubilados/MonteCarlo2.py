@@ -2,6 +2,7 @@ from atarigon.api import Goshi, Goban, Ten
 from typing import Optional
 import copy
 import random
+from atarigon.exceptions import KūtenError
 
 class MonteCarlo2(Goshi):
     def __init__(self, num_iterations=5):
@@ -54,7 +55,18 @@ class MonteCarlo2(Goshi):
             )
             liberties[ten] = liberty_count
         return liberties
-
+    
+    def check_liberties_and_valid_moves(self, goban) -> dict:
+        liberties = {}
+        for row in range(goban.size):
+            for col in range(goban.size):
+                if goban.ban[row][col] is None:
+                    ten = Ten(row, col)
+                    liberty_count = sum(
+                        1 for neighbor in goban.shūi(ten) if goban.ban[neighbor.row][neighbor.col] is None
+                    )
+                    liberties[ten] = liberty_count
+        return liberties
     def decide(self, goban):
         if not self.valid_moves:
             self.get_valid_moves(goban)
@@ -92,37 +104,88 @@ class MonteCarlo2(Goshi):
 
         # self.remove_valid_move(best_move)
         return best_move
+    def compute_reward(self, goban: Goban, ten: Ten) -> int:
+        copy_goban = copy.deepcopy(goban)
+        reward = 0
+        captured = copy_goban.place_stone(ten, self)
+        
+        if captured:
+            reward += 10 * len(captured)
+        
+        # Check the liberties of the player's group after placing the stone
+        new_group_liberties = copy_goban.kokyū_ten(ten)
 
-    def compute_reward(self, goban, ten,captured):
-        if len(captured) > 0:
-            return 2 * len(captured)  # Recompensa por capturas
-        if self.is_last_move(goban):
-            return 10  # Gran recompensa por ser el último en poner piedra
-        liberties = sum(
-            1 for neighbor in goban.shūi(ten) if goban.ban[neighbor.row][neighbor.col] is None
-        )
+        # If player´s stone leaves only 1 liberty for a group, give negative reward
+        if len(new_group_liberties) ==1:
+            reward -=10
+        elif len(new_group_liberties)>=2:
+            reward += len(new_group_liberties)
+
+        
+        adjacent_positions = goban.shūi(ten)
+        # NO DEBERIA DE DAR ERROR pero da :(
+        for pos in adjacent_positions:
+            if goban.ban[pos.row][pos.col] is not None and goban.ban[pos.row][pos.col] != self:
+                try:
+                    enemy_liberties = self.liberties(copy_goban, pos)
+                    if len(enemy_liberties) == 1:
+                        reward += 3
+                except KūtenError:
+                    # Skip empty positions
+                    continue
+        
+        return reward
+    
+    def get_group(self, goban: Goban, pos: Ten, visited: set[Ten]) -> set[Ten]:
+        group = set()
+        to_visit = [pos]
+        while to_visit:
+            current = to_visit.pop()
+            if current not in visited:
+                visited.add(current)
+                group.add(current)
+                neighbors = [n for n in goban.shūi(current) if goban.ban[n.row][n.col] == goban.ban[pos.row][pos.col]]
+                to_visit.extend(neighbors)
+        return group
+
+    def liberties(self, goban: Goban, pos: Ten) -> set[Ten]:
+        group = self.get_group(goban, pos, set())
+        liberties = set()
+        for stone in group:
+            neighbors = goban.shūi(stone)
+            for neighbor in neighbors:
+                if goban.ban[neighbor.row][neighbor.col] is None:
+                    liberties.add(neighbor)
         return liberties
 
-    def is_last_move(self, goban):
-        for row in goban.ban:
-            for col in row:
-                if col is None:
-                    return False
-        return True
+    # def compute_reward(self, goban, ten,captured):
+    #     if len(captured) > 0:
+    #         return 5 * len(captured)  # Recompensa por capturas
+    #     if self.is_last_move(goban):
+    #         return 10  # Gran recompensa por ser el último en poner piedra
+    #     liberties = sum(
+    #         1 for neighbor in goban.shūi(ten) if goban.ban[neighbor.row][neighbor.col] is None
+    #     )
+    #     return liberties
+
+    # def is_last_move(self, goban):
+    #     for row in goban.ban:
+    #         for col in row:
+    #             if col is None:
+    #                 return False
+    #     return True
 
     def decide_simulation(self, goban):
         max_reward = -1000
         moves_dict={}
         # goban_copy=copy.deepcopy(goban)
-        valid_moves = copy.deepcopy(self.valid_moves)
-        for move in valid_moves:
-            captured = goban.place_stone(move,self)
-            if move in valid_moves:
-                valid_moves.remove(move)
-            reward = self.compute_reward(goban, move,captured)
+        # valid_moves = copy.deepcopy(self.valid_moves)
+        valid_moves=self.check_liberties_and_valid_moves(goban)
+        for move, liberties in valid_moves.items():
+            reward = liberties + self.compute_reward(goban, move)
+            moves_dict[move] = reward
             if reward > max_reward:
                 max_reward = reward
-                moves_dict[move]=reward
         sorted_moves_dict = sorted(moves_dict.items(), key=lambda item: item[1], reverse=True)
         if len(sorted_moves_dict) >= 3:
             top_3_moves = sorted_moves_dict[:3]

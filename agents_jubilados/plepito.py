@@ -80,7 +80,7 @@ class Plepito(Goshi):
         # if copy_goban.jishi(ten, self):
         #     return -10  # Penalización fuerte por suicidio
         if len(captured) > 0:
-            return 4 * len(captured)  # Recompensa por capturas
+            return 5 * len(captured)  # Recompensa por capturas
         if self.is_last_move(goban):
             return 10  # Gran recompensa por ser el último en poner piedra
         # Recompensa basada en el número de libertades

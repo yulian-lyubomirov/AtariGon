@@ -15,7 +15,7 @@ class QNetwork(nn.Module):
     def __init__(self,board_size):
         super(QNetwork, self).__init__()
         self.board_size = board_size
-        self.fc1 = nn.Linear(board_size * board_size * 3, 256)  # Input size increased
+        self.fc1 = nn.Linear(board_size * board_size * 3, 256)
         self.fc2 = nn.Linear(256, 512)
         self.fc3 = nn.Linear(512, board_size * board_size)
 
@@ -34,15 +34,15 @@ class QAgent(Goshi):
         self.learning_rate = 0.1
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
-        self.epsilon = 1.0  # Start with a high exploration rate
+        self.epsilon = 0.2  # exploration rate for training purposes
         self.epsilon_min = 0.01  # Minimum epsilon value
-        self.epsilon_decay = 0.995  # Decay rate for epsilon
+        self.epsilon_decay = 0.95  # Decay rate for epsilon
         self.gamma = 0.9  # Discount factor
-        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=1000, eta_min=0.01)
+        self.scheduler = CosineAnnealingLR(self.optimizer, T_max=2000, eta_min=0.01) #lr scheduler
         self.action = None
         self.state = None
         self.memory = []
-        # self.load_weights(path='QAgent_weights.pth')
+        self.load_weights(path='QAgent_weights2.pth')
 
     def save_weights(self, path: str):
         torch.save(self.model.state_dict(), path)
@@ -107,8 +107,8 @@ class QAgent(Goshi):
     def decide(self, goban: 'Goban') -> Optional[Ten]:
         state = self.get_state(goban)
         state_tensor = torch.tensor(state, dtype=torch.float32).unsqueeze(0)
-        if self.is_game_ended(goban):
-            self.train()
+        # if self.is_game_ended(goban):
+        #     self.train()
         if random.uniform(0, 1) < self.epsilon:
             q_values = self.model(state_tensor)
             action = self.random_action(q_values, goban)
@@ -147,7 +147,7 @@ class QAgent(Goshi):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            self.save_weights("QAgent_weights.pth")
+            self.save_weights("QAgent_weights2.pth")
             
         self.scheduler.step()
         self.memory = []

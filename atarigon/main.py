@@ -62,6 +62,8 @@ def run_game(
 
         # The player is added to the end of the list, waiting for its
         # next turn
+        # goban.print_board()
+        # print('-----------')
         goshi.append(player)
 
     # Now we compute the scores based on the captured players and on

@@ -5,7 +5,7 @@ import os
 import random
 import sys
 from typing import Type, List
-from agents.QAgent import QAgent
+# from agents.QAgent import QAgent
 # from agents.Qentrenador import QEntrenador
 from AtariGonEnv import AtariGonEnv
 from atarigon.api import Goshi, Goban
@@ -58,7 +58,6 @@ def run_game(
 
         if player.name=='QEntrenador' or player.name == 'QAgent':      
             player.update_memory(reward=reward,next_state=obs)
-
         for captured_player in captured:
             # It maybe was an already captured player, so we check. If
             # not, the player score is incremented and the captured
@@ -134,6 +133,9 @@ def main():
         if player.name == 'QAgent' or player.name =='QEntrenador':
             # goban = Goban(size=args.size, goshi=players) 
             env = AtariGonEnv(players=players,player=player,size=args.size)
+            print('env')
+        # else:
+        #     env= None
     for game in range(args.games):
         results = run_game(
             goban=Goban(size=args.size, goshi=players),
@@ -145,7 +147,8 @@ def main():
                 player.train()
             kakunin[player].append(score)
         # env.reset()
-        env.reset()
+        if env:
+            env.reset()
 
 
     # Leaderboard

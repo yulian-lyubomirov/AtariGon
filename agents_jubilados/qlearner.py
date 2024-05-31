@@ -20,6 +20,7 @@ class QLearningAgent(Goshi):
         self.alpha = alpha      # Learning rate
         self.gamma = gamma      # Discount factor
         self.q_table = {}
+        self.my_stones= np.zeros(shape=(19,19), dtype=int)
 
 
     def get_valid_moves(self, goban):
@@ -47,14 +48,38 @@ class QLearningAgent(Goshi):
 
     def compute_reward(self, goban, ten):
         captured = self.check_captures(ten, goban)
+        reward=0
         if len(captured) > 0:
-            return 2 * len(captured)  # Recompensa por capturas
-        if self.is_terminal(goban):
-            return 10  # Gran recompensa por ser el último en poner piedra
-        liberties = sum(
-            1 for neighbor in goban.shūi(ten) if goban.ban[neighbor.row][neighbor.col] is None
+            reward += 5 * len(captured)  # Reward for captures
+
+        # Define adjacent positions
+        adjacent_positions = [
+            Ten(ten.row - 1, ten.col),
+            Ten(ten.row + 1, ten.col),
+            Ten(ten.row, ten.col - 1),
+            Ten(ten.row, ten.col + 1)
+        ]
+
+        # Sum 1 point for each adjacent stone in self.my_stones
+        adjacent_count = sum(
+            1 for pos in adjacent_positions
+            if 0 <= pos.row < goban.size and 0 <= pos.col < goban.size and self.my_stones[pos.row, pos.col] == 1
         )
-        return liberties
+        reward += adjacent_count
+
+        # Check if ten is a corner position based on goban.size
+        is_corner = (ten.row in {0, goban.size - 1}) and (ten.col in {0, goban.size - 1})
+        
+        if is_corner:
+            no_non_self_adjacent_stones = all(
+                0 <= pos.row < goban.size and 0 <= pos.col < goban.size and 
+                (self.my_stones[pos.row, pos.col] == 1 or goban.ban[pos.row][pos.col] is None)
+                for pos in adjacent_positions
+            )
+            if no_non_self_adjacent_stones:
+                reward += 20
+
+        return reward
     
 
     def learn(self, goban, action) -> None:
@@ -66,9 +91,10 @@ class QLearningAgent(Goshi):
             max_future_q = 0
         else:
             max_future_q = np.max([self.q_value(next_state, pos) for pos in self.get_valid_moves(next_state)])
-
         new_q = (1 - self.alpha) * current_q + self.alpha * (reward + self.gamma * max_future_q)
-        self.q_table[(state, action)] = new_q
+        self.q_table[(tuple(tuple(row) for row in goban.ban), action)] = new_q
+
+
         self.alpha = self.alpha-0.0005
 
     # def learn(self, goban: Goban, action: Ten) -> None:
